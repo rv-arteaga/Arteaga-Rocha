@@ -1,56 +1,72 @@
 import sys
 import os
 
-path = sys.argv[1]
-pathCompressed = "descomprimido-elmejorprofesor.txt"
-
 
 def getSize(filename):
 	st = os.stat(filename)
 	return st.st_size
 
 
-def comparar_arreglos(arr1, arr2):
-	"""
-    Compara dos arreglos y devuelve las diferencias encontradas.
-    """
-	# Verificar que ambos arreglos tengan la misma longitud
-	if len(arr1) != len(arr2):
-		raise ValueError("Los arreglos no tienen la misma longitud")
+def get_file_encoding(path):
+	# Patrones de bytes característicos de algunas codificaciones
+	encodings = [
+	 ("utf-8", b"\xef\xbb\xbf"),
+	 ("utf-16", b"\xff\xfe"),
+	 ("utf-16be", b"\xfe\xff"),
+	 ("utf-32", b"\xff\xfe\x00\x00"),
+	 ("utf-32be", b"\x00\x00\xfe\xff"),
+	 ("iso-8859-1", b"\x80"),
+	 ("windows-1252", b"\x80"),
+	]
 
-	# Inicializar una lista para almacenar las diferencias
-	diferencias = []
+	# Leer los primeros bytes del archivo
+	with open(path, "rb") as f:
+		first_bytes = f.read(4)
 
-	# Recorrer los arreglos y comparar cada elemento
-	for i in range(len(arr1)):
-		if arr1[i] != arr2[i]:
-			diferencias.append((i, arr1[i], arr2[i]))
+	# Buscar coincidencias con los patrones de bytes
+	for encoding, pattern in encodings:
+		if first_bytes.startswith(pattern):
+			return encoding
 
-	# Devolver la lista de diferencias encontradas
-	return diferencias
+	# Intentar leer el archivo con varias codificaciones
+	for encoding in [
+	  "utf-8", "utf-16", "utf-16be", "utf-32", "utf-32be", "iso-8859-1",
+	  "windows-1252"
+	]:
+		try:
+			with open(path, "r", encoding=encoding) as f:
+				f.read()
+			return encoding
+		except UnicodeDecodeError:
+			pass
+
+	return None
 
 
 # Function that reads two files, checks if files are equal by comparing lists
-def verifyFile(path, decompressed):
-	fileSize = getSize(path)
-	fileSizeDecompressed = getSize(decompressed)
-	file = open(path, 'r', encoding='latin-1')
-	fileDecompressed = open(decompressed, 'r', encoding='latin-1')
-	lines = file.readlines()
-	linesDecompressed = fileDecompressed.readlines()
-	file.close()
+def verifyFile(path1, path2):
+	fileSize1 = getSize(path1)
+	fileSize2 = getSize(path2)
+	file1 = open(path1, 'r', encoding=get_file_encoding(path1))
+	file2 = open(path2, 'r', encoding=get_file_encoding(path2))
+	lines1 = file1.readlines()
+	lines2 = file2.readlines()
+	file1.close()
+	file2.close()
 
-	fileDecompressed.close()
-	#print(comparar_arreglos(lines,linesDecompressed))
-	if lines == linesDecompressed:
+	if lines1 == lines2:
 		print('ok')
 	else:
 		print('nok')
 
+	if fileSize1 == fileSize2:
+		print('ok tam')
+	else:
+		print('nok tam')
+		print(fileSize2 - fileSize1)
 
-"""    if fileSize == fileSizeDecompressed:
-        print('ok tam')
-    else:
-        print('nok tam')"""
 
-verifyFile(path, pathCompressed)
+path1 = sys.argv[1]
+path2 = sys.argv[2]
+# pathCompressed = "descomprimido-elmejorprofesor.txt"
+verifyFile(path1, path2)

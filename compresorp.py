@@ -2,6 +2,7 @@ import heapq
 import os
 import sys
 import time
+from mpi4py import MPI
 
 
 class CompressorHuffman:
@@ -213,7 +214,41 @@ class CompressorHuffman:
 		return output_path
 
 
-path = sys.argv[1]
-h = CompressorHuffman(path)
-a = h.compress()
-h.decompress(a)
+def parallel_compress(input_path):
+	h = CompressorHuffman(input_path)
+	output_path = h.compress()
+	return output_path
+
+
+def parallel_decompress(input_path):
+	h = CompressorHuffman("")
+	output_path = h.decompress(input_path)
+	return output_path
+
+
+if __name__ == "__main__":
+	MPI.Init()
+	comm = MPI.COMM_WORLD
+	rank = comm.Get_rank()
+
+	if rank == 0:
+		path = sys.argv[1]
+		input_files = [path]
+	else:
+		input_files = None
+
+	input_files = comm.bcast(input_files, root=0)
+
+	if input_files is not None:
+		output_path = parallel_compress(input_files[0])
+	else:
+		output_path = None
+
+	output_path = comm.gather(output_path, root=0)
+
+	if rank == 0:
+		for path in output_path:
+			if path is not None:
+				parallel_decompress(path)
+
+	MPI.Finalize()
